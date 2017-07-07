@@ -169,57 +169,64 @@ def dask_open_and_join(hdf5_fname,path,components,ids=ALL,chunksize=500000):
     return df_pd
 
 
-# def partition_and_join(left,right,partition_size,index_level_for_output=0):
-#     logger.log('PARTITION AND JOIN',new_level=True)
-#
-#
-#
-#     right.sort_index(inplace=True)
-#     right.sort_index(inplace=True,axis=1)
-#
-#     #determine number of partitions
-#     logger.log('Divide DataFrame {} in partitions of size = {}'.format(right.shape,partition_size))
-#     num_partitions = int(np.ceil(right.shape[0]/float(partition_size)))
-#     partitions = np.array_split(right,num_partitions)
-#
-#     #Join each partition, one at a time
-#     logger.log('Join {} partitions to Dataframe shape = {}...'.format(num_partitions,left.shape),new_level=True)
-#
-#     while len(partitions) > 0 :
-#
-#         df_partition = partitions.pop()
-#
-#         #get information for logging
-#         start = df_partition.iloc[0].name[index_level_for_output]
-#         end = df_partition.iloc[-1].name[index_level_for_output]
-#         partition_num = int(num_partitions-(len(partitions)))
-#         logger.log('Partition {}/{}: {}, ({} -> {})'.format(partition_num,num_partitions,df_partition.shape,start,end),new_level=True)
-#
-#         #Drop NaN columns, will speed up join
-#         #logger.log('Drop NaN')
-#         #df_partition.dropna(axis=1,how='all',inplace=True)
-#
-#         #Perform complex join to left (can have overlapping row and column indicies)
-#         in_index = df_partition.index.isin(left.index)
-#         in_column = df_partition.columns.isin(left.columns)
-#
-#         logger.log('UPDATE existing indicies and existing columns')
-#         left.update(df_partition.loc[in_index,in_column])
-#
-#         logger.log('JOIN existing indicies with new columns')
-#         left = left.join(df_partition.loc[in_index,~in_column], how='outer')
-#
-#         logger.log('CONCAT new indicies')
-#         left = pd.concat([left,df_partition.loc[~in_index,:]])
-#
-#         left.sort_index(inplace=True)
-#         left.sort_index(inplace=True,axis=1)
-#
-#         logger.end_log_level()
-#
-#         #cleanup
-#         del df_partition
-#
-#     logger.end_log_level()
-#     logger.end_log_level()
-#     return left
+def smart_join(hdf5_fname,paths,joined_path,
+                ids,
+                id_col='id',datetime_col='datetime',
+                chunksize=5000):
+
+    logger.log('Smart join: n={}, {}'.format(len(ids),paths),new_level=True)
+
+    store = pd.HDFStore(hdf5_fname)
+    if joined_path in store:
+        del store[joined_path]
+
+    # df_dict = {}
+    # logger.log('OPENING all component dataframes',new_level=True)
+    # for path in paths:
+    #     logger.log('OPEN: {}'.format(path))
+    #     df_dict[path] = store[path]
+    # logger.end_log_level()
+
+    #do chunked join
+    logger.log('JOINING dataframes',new_level=True)
+    for ix_start in range(0,len(ids),chunksize):
+        ix_end = min(ix_start + chunksize,len(ids))-1
+        id_start = ids[ix_start]
+        id_end = ids[ix_end]
+
+        where = 'index>={} & index<={}'.format(id_start,id_end)
+        print where
+
+        logger.log('Slice & Join: {} --> {}, n={}'.format(id_start, id_end,ix_end+1-ix_start),new_level=True)
+        df_slice = None
+        # for path in df_dict.keys():
+        for path in paths:
+            logger.log(path)
+            slice_to_add = store.select(path,where=where).reset_index(drop=False)
+
+            if df_slice is None: df_slice = slice_to_add
+            else:
+                df_slice = df_slice.merge(slice_to_add, on=[id_col,datetime_col],how='outer')
+                del slice_to_add
+
+        logger.end_log_level()
+        logger.log('Append slice')
+
+        if joined_path not in store:
+            store.put(joined_path,df_slice,format='t')
+        else:
+            store.append(joined_path,df_slice)
+        del df_slice
+
+    logger.end_log_level()
+    logger.end_log_level()
+
+    return store
+
+
+def smart_count(col):
+    var_type = col.name[2]
+    if (var_type == variable_type.NOMINAL) and (col.dtype == pd.np.uint8):
+        return col.sum()
+
+    return col.count()

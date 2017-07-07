@@ -145,12 +145,7 @@ def remove_oob_values(data,lower,upper):
     return data[~oob_mask]
 
 
-def smart_count(col):
-    var_type = col.name[2]
-    if (var_type == variable_type.NOMINAL) and (col.dtype == pd.np.uint8):
-        return col.sum()
 
-    return col.count()
 
 class split_dtype(BaseEstimator,TransformerMixin):
 
@@ -330,10 +325,9 @@ class nominal_to_onehot(BaseEstimator,TransformerMixin):
             column = df[col_name]
             df.drop(col_name,axis=1,inplace=True)
             df_dummies = pd.get_dummies(column)
-            if df_dummies.empty == 0: continue
+            if df_dummies.empty: continue
             dummy_col_names = [col_name[:-1] + ('{}_{}'.format(col_name[-1],text),) for text in df_dummies.columns]
             df_dummies.columns = pd.MultiIndex.from_tuples(dummy_col_names,names=df.columns.names)
-
             df = df.join(df_dummies,how='outer')
         logger.end_log_level()
         return df
@@ -415,7 +409,7 @@ class column_filter(BaseEstimator,TransformerMixin):
 
 class max_col_only(column_filter):
     def get_columns_to_keep(self, df, y=None, **fit_params):
-        self.max_col =  df.apply(smart_count).sort_values().index.tolist()[-1]
+        self.max_col =  df.apply(utils.smart_count).sort_values().index.tolist()[-1]
         return [self.max_col]
 
 
@@ -425,7 +419,7 @@ class remove_small_columns(column_filter):
         self.threshold = threshold
 
     def get_columns_to_keep(self, df, y=None, **fit_params):
-        return df.apply(smart_count) > self.threshold
+        return df.apply(utils.smart_count) > self.threshold
 
 
 class multislice_filter(column_filter):

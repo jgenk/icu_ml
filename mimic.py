@@ -10,6 +10,7 @@ import random
 import units
 import transformers
 import dask.dataframe as dd
+from extract_transform_load import ETLManager
 
 ITEMID = 'itemid'
 SUBINDEX = 'subindex'
@@ -87,22 +88,29 @@ EXTRACTING Data from MIMIC-III
 - Context/demographic data
 """
 
-class mimic_extractor(object):
+class MimicETLManager(ETLManager):
 
-    def __init__(self,mimic_item_map_fname,data_dict,mimic_conn=None):
-        if mimic_conn is None: mimic_conn = connect()
-        self.conn = mimic_conn
+    def __init__(self,data_dict,cleaners,hdf5_fname,mimic_item_map_fname):
+        self.conn = connect()
         self.item_map = pd.read_csv(mimic_item_map_fname)
-        self.data_dict = data_dict
+        cleaners = standard_cleaners(data_dict)
+        super(MimicETLManager,self).__init__(data_dict,cleaners,hdf5_fname)
 
-    def extract_component(self,component,hadm_ids=ALL):
-        return extract_component(self.conn,component,self.item_map,self.data_dict,hadm_ids)
+    def extract(self,component):
+        return extract_component(self.conn,component,self.item_map,self.data_dict)
 
-    def get_context_data(self,hadm_ids=ALL):
-        return get_context_data(hadm_ids,self.conn)
+    def transform(self,df,component):
+        transformers = transform_pipeline(first_component=component)
+        return transformers.fit_transform(df)
+
+    def extracted_ids(self,df_extracted):
+        return df_extracted[column_names.ID].unique().tolist()
+
+    def extracted_data_count(self,df_extracted):
+        return df_extracted[column_names.VALUE].count()
 
 
-def extract_component(mimic_conn,component,item_map, data_dict, hadm_ids=ALL):
+def extract_component(mimic_conn,component,item_map,data_dict,hadm_ids=ALL):
     itemids = items_for_components(item_map,[component])
     if len(itemids) == 0: return None
     #Get item defs and filter to what we want
@@ -386,7 +394,7 @@ def get_all_hadm_ids():
     conn = connect()
     all_ids = pd.read_sql_query('SELECT hadm_id from mimiciii.admissions',conn)['hadm_id']
     all_ids = all_ids[~pd.isnull(all_ids)]
-    return all_ids.astype(int).tolist()
+    return all_ids.astype(int).sort_values().tolist()
 
 def sample_hadm_ids(n,seed):
     all_ids = get_all_hadm_ids()
@@ -449,6 +457,20 @@ def transform_pipeline(first_component=None):
     ('add_level',transformers.add_level(first_component,'component',axis=1)),
 ])
 
+def standard_cleaners(data_dict):
+    category_map = mimic_category_map(data_dict)
+    ureg = units.MedicalUreg()
+    return Pipeline([
+        ('aggregate_same_datetime',transformers.same_index_aggregator(lambda grp:grp.iloc[0])),
+        ('split_dtype',transformers.split_dtype()),
+        ('standardize_columns',transformers.column_standardizer(data_dict,ureg)),
+        ('standardize_categories',transformers.standardize_categories(data_dict,category_map)),
+        ('split_bad_categories',transformers.split_bad_categories(data_dict)),
+        # ('one_hotter',transformers.nominal_to_onehot()),
+        ('drop_oob_values',transformers.oob_value_remover(data_dict))
+    ])
+
+
 def mimic_category_map(data_dict):
     return {
         data_dict.components.GLASGOW_COMA_SCALE_EYE_OPENING: {
@@ -503,7 +525,7 @@ def ETL(extractor,
         ('standardize_columns',transformers.column_standardizer(data_dict,ureg)),
         ('standardize_categories',transformers.standardize_categories(data_dict,category_map)),
         ('split_bad_categories',transformers.split_bad_categories(data_dict)),
-        ('one_hotter',transformers.nominal_to_onehot()),
+        # ('one_hotter',transformers.nominal_to_onehot()),
         ('drop_oob_values',transformers.oob_value_remover(data_dict))
     ])
 

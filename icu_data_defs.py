@@ -117,6 +117,23 @@ class data_dictionary(object):
     def get_variable_type(self,component):
         return self.defs_for_component(component).loc[:,'variable_type'].iloc[0]
 
+    def get_components(self,specs={},panel_id=None,operator='and'):
+        if panel_id is not None:
+            defs = self.get_panel_defintions(panel_id)
+        else:
+            defs = self.tables.definitions
+
+        df_mask = pd.DataFrame(index=defs.index)
+        if len(specs) == 0: df_mask.loc[:,0] = True
+
+        for col_name,vals in specs.iteritems():
+            if not isinstance(vals,list): vals = [vals]
+            df_mask.loc[:,col_name] = (defs.loc[:,col_name].isin(vals))
+
+        if operator == 'or': mask = df_mask.any(axis=1)
+        else: mask = df_mask.all(axis=1)
+
+        return defs.loc[mask].component.unique().tolist()
 
 def next_id(df):
     return max(df.index.tolist())+1
