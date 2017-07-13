@@ -25,3 +25,4 @@ class column_names:
     DESCRIPTION='description'
     COMPONENT='component'
     VAR_TYPE = 'variable_type'
+    CLINICAL_SOURCE = 'clinical_source'

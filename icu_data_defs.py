@@ -1,6 +1,6 @@
 import pandas as pd
 import utils
-from constants import variable_type,clinical_source,NO_UNITS
+from constants import variable_type,clinical_source,NO_UNITS,column_names
 
 class data_dictionary(object):
 
@@ -42,7 +42,7 @@ class data_dictionary(object):
                        lower_limit=pd.np.nan,
                        upper_limit=pd.np.nan,
                        list_id=pd.np.nan):
-        new_id = next_id(self.tables.definitions)
+        new_id = _next_id(self.tables.definitions)
         self.tables.definitions.loc[new_id] = [component,units,variable_type,clinical_source,lower_limit,upper_limit,list_id]
         self.__refresh_components()
         return new_id
@@ -51,8 +51,8 @@ class data_dictionary(object):
         """
         panel map: {table_name:id}
         """
-        new_panel_id = next_id(self.tables.panels)
-        new_list_id = next_id(self.tables.lists)
+        new_panel_id = _next_id(self.tables.panels)
+        new_list_id = _next_id(self.tables.lists)
         self.tables.panels.loc[new_panel_id] = [panel_name,new_list_id]
         for ref_table,ref_id in panel_map:
             self.add_item_to_panel(new_panel_id,ref_table,ref_id)
@@ -65,19 +65,19 @@ class data_dictionary(object):
     def __add_list_item(self,list_id,ref_table,ref_id,seq_num):
         orig_index_name = self.tables.lists.index.name
         list_df = self.tables.lists.reset_index(drop=False)
-        new_id = next_id(list_df)
+        new_id = _next_id(list_df)
         list_df.loc[new_id] = [list_id,ref_table,ref_id,seq_num]
         list_df.set_index(orig_index_name,inplace=True)
         self.tables.lists = list_df
         return new_id
 
     def add_category(self,val_numeric,val_text):
-        new_id = next_id(self.tables.categories)
+        new_id = _next_id(self.tables.categories)
         self.tables.categories.loc[new_id] = [val_numeric,val_text]
         return new_id
 
     def add_category_list(self,categories,is_ordered=False):
-        new_list_id = next_id(self.tables.lists)
+        new_list_id = _next_id(self.tables.lists)
         for i,category_id in enumerate(categories):
             self.__add_list_item(new_list_id,
                                  self.table_names.categories,
@@ -108,8 +108,7 @@ class data_dictionary(object):
         return out_df
 
     def defs_for_component(self,component):
-        defs = self.tables.definitions
-        return defs[defs.component == component]
+        return self.get_defs({column_names.COMPONENT : component})
 
     def get_clinical_source(self,component):
         return self.defs_for_component(component).loc[:,'clinical_source'].iloc[0]
@@ -117,23 +116,28 @@ class data_dictionary(object):
     def get_variable_type(self,component):
         return self.defs_for_component(component).loc[:,'variable_type'].iloc[0]
 
+    def get_defs(self,data_specs,operator='and'):
+        return _filter_defs(self.tables.definitions,data_specs)
+
     def get_components(self,specs={},panel_id=None,operator='and'):
         if panel_id is not None:
             defs = self.get_panel_defintions(panel_id)
         else:
             defs = self.tables.definitions
+        return _filter_defs(defs,specs,operator).component.unique().tolist()
 
-        df_mask = pd.DataFrame(index=defs.index)
-        if len(specs) == 0: df_mask.loc[:,0] = True
+def _filter_defs(defs,specs,operator='and'):
+    df_mask = pd.DataFrame(index=defs.index)
+    if len(specs) == 0: df_mask.loc[:,0] = True
 
-        for col_name,vals in specs.iteritems():
-            if not isinstance(vals,list): vals = [vals]
-            df_mask.loc[:,col_name] = (defs.loc[:,col_name].isin(vals))
+    for col_name,vals in specs.iteritems():
+        if not isinstance(vals,list): vals = [vals]
+        df_mask.loc[:,col_name] = (defs.loc[:,col_name].isin(vals))
 
-        if operator == 'or': mask = df_mask.any(axis=1)
-        else: mask = df_mask.all(axis=1)
+    if operator == 'or': mask = df_mask.any(axis=1)
+    else: mask = df_mask.all(axis=1)
 
-        return defs.loc[mask].component.unique().tolist()
+    return defs.loc[mask]
 
-def next_id(df):
+def _next_id(df):
     return max(df.index.tolist())+1

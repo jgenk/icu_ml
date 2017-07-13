@@ -131,6 +131,119 @@ def flatten_index(df,join_char='_',suffix=None,axis=0):
     else: pass
     return df
 
+def smart_count(col):
+    var_type = col.name[2]
+    if (var_type == variable_type.NOMINAL) and (col.dtype == pd.np.uint8):
+        return col.sum()
+
+    return col.count()
+
+"""
+Pytables/HDF5 I/O with axis deconstruction
+"""
+
+def read_and_reconstruct(hdf5_fname,path,where=None):
+    # Get all paths for dataframes in store
+    data_path,col_path = _deconstucted_paths(path)
+
+    data = pd.read_hdf(hdf5_fname,data_path,where=where)
+    columns = pd.read_hdf(hdf5_fname,col_path)
+    return reconstruct_df(data,columns)
+
+
+def reconstruct_df(data,column_df):
+    #reconstruct the columns from dataframe
+    column_index = reconstruct_columns(column_df,data.columns)
+    df = data.copy()
+    df.columns = column_index
+    return df
+
+def reconstruct_columns(column_df,col_ix=None):
+    column_df = column_df.drop('dtype',axis=1)
+    if col_ix is None: col_ix = column_df.index
+    col_arys = column_df.loc[col_ix].T.values
+    levels = column_df.columns.tolist()
+
+    return pd.MultiIndex.from_arrays(col_arys,names=levels)
+
+def deconstruct_and_write(df,hdf5_fname,path,append=False):
+
+    # Deconstruct the dataframe
+    data,columns = deconstruct_df(df)
+
+    # Get all paths for dataframes in store
+    data_path,col_path = _deconstucted_paths(path)
+
+    #Open store and save df
+    store = pd.HDFStore(hdf5_fname)
+    store.put(data_path,data,append=append,format='t')
+    if (not append) or col_path not in store:
+        columns.to_hdf(hdf5_fname,col_path,format='t')
+    store.close()
+    return
+
+def deconstruct_df(df):
+    columns = pd.DataFrame(map(list,df.columns.tolist()),columns=df.columns.names)
+    columns['dtype'] = df.dtypes.values.astype(str)
+    data = df.copy()
+    data.columns = [i for i in range(df.shape[1])]
+    return data,columns
+
+def _deconstucted_paths(path):
+    data_path = '{}/{}'.format(path,'data')
+    col_path = '{}/{}'.format(path,'columns')
+    return data_path,col_path
+
+def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=True):
+
+    logger.log('Smart join: n={}, {}'.format(len(ids),paths),new_level=True)
+
+    store = pd.HDFStore(hdf5_fname)
+    if joined_path in store:
+        del store[joined_path]
+    store.close()
+
+    #sort ids, should speed up where clauses and selects
+    ids = sorted(ids)
+
+    #do chunked join
+    logger.log('JOINING dataframes',new_level=True)
+    for ix_start in range(0,len(ids),chunksize):
+        ix_end = min(ix_start + chunksize,len(ids))
+        id_slice = ids[ix_start:ix_end]
+
+        where = '{id_col} in {id_list}'.format(id_col=column_names.ID,id_list=id_slice)
+
+        logger.log('Slice & Join: {} --> {}, n={}'.format(id_slice[0], id_slice[-1],len(id_slice)),new_level=True)
+        df_slice = None
+        # for path in df_dict.keys():
+        for path in paths:
+            logger.log(path)
+            if need_deconstruct: slice_to_add = read_and_reconstruct(hdf5_fname,path,where=where)
+            else: slice_to_add = pd.read_hdf(hdf5_fname,path,where=where)
+
+            if df_slice is None: df_slice = slice_to_add
+            else:
+                df_slice = df_slice.join(slice_to_add,how='outer')
+                del slice_to_add
+
+        logger.end_log_level()
+        logger.log('Append slice')
+
+        if need_deconstruct: deconstruct_and_write(df_slice,hdf5_fname,joined_path,append=True)
+        else: df_slice.to_hdf(joined_path,append=True,format='t')
+
+        del df_slice
+
+    logger.end_log_level()
+    logger.end_log_level()
+
+    return store
+
+"""
+Dask intelligent join
+"""
+
 def dask_open_and_join(hdf5_fname,path,components,ids=ALL,chunksize=500000):
 
     df_all=None
@@ -169,64 +282,17 @@ def dask_open_and_join(hdf5_fname,path,components,ids=ALL,chunksize=500000):
     return df_pd
 
 
-def smart_join(hdf5_fname,paths,joined_path,
-                ids,
-                id_col='id',datetime_col='datetime',
-                chunksize=5000):
+"""
+Visualization
+"""
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-    logger.log('Smart join: n={}, {}'.format(len(ids),paths),new_level=True)
-
-    store = pd.HDFStore(hdf5_fname)
-    if joined_path in store:
-        del store[joined_path]
-
-    # df_dict = {}
-    # logger.log('OPENING all component dataframes',new_level=True)
-    # for path in paths:
-    #     logger.log('OPEN: {}'.format(path))
-    #     df_dict[path] = store[path]
-    # logger.end_log_level()
-
-    #do chunked join
-    logger.log('JOINING dataframes',new_level=True)
-    for ix_start in range(0,len(ids),chunksize):
-        ix_end = min(ix_start + chunksize,len(ids))-1
-        id_start = ids[ix_start]
-        id_end = ids[ix_end]
-
-        where = 'index>={} & index<={}'.format(id_start,id_end)
-        print where
-
-        logger.log('Slice & Join: {} --> {}, n={}'.format(id_start, id_end,ix_end+1-ix_start),new_level=True)
-        df_slice = None
-        # for path in df_dict.keys():
-        for path in paths:
-            logger.log(path)
-            slice_to_add = store.select(path,where=where).reset_index(drop=False)
-
-            if df_slice is None: df_slice = slice_to_add
-            else:
-                df_slice = df_slice.merge(slice_to_add, on=[id_col,datetime_col],how='outer')
-                del slice_to_add
-
-        logger.end_log_level()
-        logger.log('Append slice')
-
-        if joined_path not in store:
-            store.put(joined_path,df_slice,format='t')
-        else:
-            store.append(joined_path,df_slice)
-        del df_slice
-
-    logger.end_log_level()
-    logger.end_log_level()
-
-    return store
-
-
-def smart_count(col):
-    var_type = col.name[2]
-    if (var_type == variable_type.NOMINAL) and (col.dtype == pd.np.uint8):
-        return col.sum()
-
-    return col.count()
+def heatmap(df_ts):
+    sns.set(context="paper", font="monospace")
+    corrmat = df_ts.corr()
+    # Set up the matplotlib figure
+    f, ax = plt.subplots(figsize=(50, 50))
+    # Draw the heatmap using seaborn
+    sns.heatmap(corrmat, vmax=1, square=True)
+    return

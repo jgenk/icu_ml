@@ -9,19 +9,15 @@ class ETLManager(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self,data_dict,cleaners,hdf5_fname):
-        self.data_dict = data_dict
+    def __init__(self,cleaners,hdf5_fname):
         self.cleaners = cleaners
         self.hdf5_fname = hdf5_fname
 
 
-    def etl(self,data_specs,panel_id=None,operator='and',save_steps=False,overwrite=False):
-
-        components = self.data_dict.get_components(specs=data_specs,panel_id=panel_id,operator=operator)
-
+    def etl(self,components,operator='or',save_steps=False,overwrite=False):
         if not overwrite:
             components = self.get_unloaded_components(components)
-
+        if len(components) == 0: return None
         all_etl_info = []
 
         logger.log('BEGIN ETL for {} components: {}'.format(len(components),components),new_level=True)
@@ -43,19 +39,18 @@ class ETLManager(object):
             logger.log('Save DataFrames...',new_level=True)
             if save_steps:
                 logger.log('Save EXTRACTED DF: {}'.format(df_extracted.shape))
-                df_extracted.to_hdf(self.hdf5_fname,'{}/{}'.format(component,'extracted'))
+                df_extracted.to_hdf(self.hdf5_fname,path='{}/{}'.format(component,'extracted'))
 
-                logger.log('Save TRANSFORMED DF: {}'.format(df_extracted.shape))
-                df_transformed.to_hdf(self.hdf5_fname,'{}/{}'.format(component,'transformed'))
+                logger.log('Save TRANSFORMED DF: {}'.format(df_transformed.shape))
+                df_transformed.to_hdf(self.hdf5_fname,path='{}/{}'.format(component,'transformed'))
 
-            logger.log('Save FINAL DF: {}'.format(df_extracted.shape))
-            deconstruct_and_write(df,self.hdf5_fname,component)
+            logger.log('Save FINAL DF: {}'.format(df.shape))
+            utils.deconstruct_and_write(df,self.hdf5_fname,path=component)
             logger.end_log_level()
 
 
 
             etl_info = self.get_etl_info(df_extracted,df_transformed,df)
-            etl_info.name = component
             all_etl_info.append(etl_info)
 
             del df_extracted,df_transformed,df
@@ -75,9 +70,13 @@ class ETLManager(object):
         return unloaded
 
 
-    def open_df(self,component):
+    def open_df(self,component,ids=None):
         #open dataframe, assume in root directory
-        return read_and_reconstruct(self.hdf5_fname, component)
+        where = None
+        if ids is not None:
+            ids = sorted(list(set(ids)))
+            where = '{} in {}'.format(column_names.ID,ids)
+        return utils.read_and_reconstruct(self.hdf5_fname, path=component, where=where)
 
     def get_etl_info(self,df_extracted,df_transformed,df_cleaned):
         e_ids = self.extracted_ids(df_extracted)
@@ -89,23 +88,15 @@ class ETLManager(object):
         c_ids = df_cleaned.index.get_level_values(column_names.ID).unique().tolist()
         c_data_count = df_cleaned.apply(utils.smart_count).sum()
 
-        index = pd.MultiIndex.from_tuples([
-            ('EXTRACTED','id_count'),
-            ('EXTRACTED','data_count'),
-            ('TRANSFORMED','id_count'),
-            ('TRANSFORMED','data_count'),
-            ('CLEANED','id_count'),
-            ('CLEANED','data_count'),
-        ], names=['stage','stat'])
-
-        return pd.Series([
-            len(e_ids),
-            e_data_count,
-            len(t_ids),
-            t_data_count,
-            len(c_ids),
-            c_data_count
-        ], index=index)
+        return pd.Series({
+            column_names.COMPONENT  : component,
+            'EXTRACTED_id_count'    : len(e_ids),
+            'EXTRACTED_data_count'  : e_data_count,
+            'TRANSFORMED_id_count'  : len(t_ids),
+            'TRANSFORMED_data_count': t_data_count,
+            'CLEANED_id_count'      : len(c_ids),
+            'CLEANED_data_count'    : c_data_count
+        })
 
 
 
@@ -125,41 +116,3 @@ class ETLManager(object):
     @abc.abstractmethod
     def extracted_data_count(self,df_extracted):
         return
-
-def read_and_reconstruct(hdf5_fname,component,path=None,where=[]):
-    key = _make_key(component,path)
-    data = pd.read_hdf(hdf5_fname,'{}/{}'.format(key,'data'))
-    columns = pd.read_hdf(hdf5_fname,'{}/{}'.format(key,'columns'))
-    return reconstruct_df(data,columns)
-
-
-def reconstruct_df(data,columns):
-    #reconstruct the columns from flattened tuples
-    columns = columns.drop('dtype',axis=1)
-    col_ix = data.columns
-    col_arys = columns.loc[col_ix].T.values
-    levels = columns.columns.tolist()
-
-    col_index = pd.MultiIndex.from_arrays(col_arys,names=levels)
-    df = data.copy()
-    df.columns = col_index
-    return df
-
-def deconstruct_and_write(df,hdf5_fname,component,path=None):
-    key = _make_key(component,path)
-    data,columns = deconstruct_df(df)
-    data.to_hdf(hdf5_fname,'{}/{}'.format(key,'data'),format='t')
-    columns.to_hdf(hdf5_fname,'{}/{}'.format(key,'columns'),format='t')
-    return
-
-def deconstruct_df(df):
-    columns = pd.DataFrame(map(list,df.columns.tolist()),columns=df.columns.names)
-    columns['dtype'] = df.dtypes.values.astype(str)
-    data = df.copy()
-    data.columns = [i for i in range(df.shape[1])]
-    return data,columns
-
-def _make_key(tb_name,path):
-    if path is not None: key = '{}/{}'.format(path,tb_name)
-    else: key = tb_name
-    return key

@@ -90,17 +90,18 @@ EXTRACTING Data from MIMIC-III
 
 class MimicETLManager(ETLManager):
 
-    def __init__(self,data_dict,cleaners,hdf5_fname,mimic_item_map_fname):
+    def __init__(self,hdf5_fname,mimic_item_map_fname,data_dict):
         self.conn = connect()
         self.item_map = pd.read_csv(mimic_item_map_fname)
+        self.data_dict = data_dict
         cleaners = standard_cleaners(data_dict)
-        super(MimicETLManager,self).__init__(data_dict,cleaners,hdf5_fname)
+        super(MimicETLManager,self).__init__(cleaners,hdf5_fname)
 
     def extract(self,component):
-        return extract_component(self.conn,component,self.item_map,self.data_dict)
+        return extract_component(self.conn,component,self.item_map)
 
     def transform(self,df,component):
-        transformers = transform_pipeline(first_component=component)
+        transformers = transform_pipeline(component,self.data_dict)
         return transformers.fit_transform(df)
 
     def extracted_ids(self,df_extracted):
@@ -110,7 +111,7 @@ class MimicETLManager(ETLManager):
         return df_extracted[column_names.VALUE].count()
 
 
-def extract_component(mimic_conn,component,item_map,data_dict,hadm_ids=ALL):
+def extract_component(mimic_conn,component,item_map,hadm_ids=ALL):
     itemids = items_for_components(item_map,[component])
     if len(itemids) == 0: return None
     #Get item defs and filter to what we want
@@ -147,28 +148,10 @@ def extract_component(mimic_conn,component,item_map,data_dict,hadm_ids=ALL):
 
     logger.log('Combine DF')
     df_all = pd.concat(df_list)
-    logger.log('Clean UOM')
-    df_all = clean_uom(df_all,component,data_dict)
 
     return df_all
 
-def clean_uom(df,component,data_dict):
-    grouped = df.groupby(column_names.UNITS)
-    for old_uom,group in grouped:
-        new_uom = process_uom(old_uom,component,data_dict)
-        df.loc[group.index,column_names.UNITS] = new_uom
-        if not (old_uom == new_uom):
-            df.loc[group.index,ITEMID] = utils.append_to_description(df.loc[group.index,ITEMID].astype(str),old_uom)
-    return df
 
-def process_uom(units,component,data_dict):
-
-    if units in ['BPM','bpm']:
-        if component == data_dict.components.HEART_RATE: units = 'beats/min'
-        if component == data_dict.components.RESPIRATORY_RATE: units = 'breaths/min'
-    for to_replace,replacement in UOM_MAP.iteritems():
-        units = re.sub(to_replace, replacement,units,flags=re.IGNORECASE)
-    return units
 
 def get_context_data(hadm_ids=ALL,mimic_conn=None):
 
@@ -409,6 +392,40 @@ def connect(psql_username='postgres',psql_pass='123'):
 """
 TRANSFORM Data extracted from MIMIC-III
 """
+
+class CleanUnits(BaseEstimator,TransformerMixin):
+
+    def __init__(self,data_dict,component):
+        self.data_dict = data_dict
+        self.component = component
+
+        def fit(self, x, y=None):
+            return self
+
+        def transform(self, df):
+            logger.log('Clean UOM',new_level=True)
+            df = clean_uom(df,self.component,self.data_dict)
+            logger.end_log_level()
+            return df
+
+def clean_uom(df,component,data_dict):
+    grouped = df.groupby(column_names.UNITS)
+    for old_uom,group in grouped:
+        new_uom = process_uom(old_uom,component,data_dict)
+        df.loc[group.index,column_names.UNITS] = new_uom
+        if not (old_uom == new_uom):
+            df.loc[group.index,ITEMID] = utils.append_to_description(df.loc[group.index,ITEMID].astype(str),old_uom)
+    return df
+
+def process_uom(units,component,data_dict):
+
+    if units in ['BPM','bpm']:
+        if component == data_dict.components.HEART_RATE: units = 'beats/min'
+        if component == data_dict.components.RESPIRATORY_RATE: units = 'breaths/min'
+    for to_replace,replacement in UOM_MAP.iteritems():
+        units = re.sub(to_replace, replacement,units,flags=re.IGNORECASE)
+    return units
+
 class clean_extract(BaseEstimator,TransformerMixin):
 
     def fit(self, x, y=None):
@@ -450,11 +467,12 @@ class unstacker(transformers.safe_unstacker):
     def __init__(self):
         super(unstacker,self).__init__(column_names.UNITS,column_names.DESCRIPTION)
 
-def transform_pipeline(first_component=None):
+def transform_pipeline(data_dict,component):
     return Pipeline([
-    ('clean',clean_extract()),
+    ('clean_units',CleanUnits(data_dict,component))
+    ('clean_df',clean_extract()),
     ('unstack',unstacker()),
-    ('add_level',transformers.add_level(first_component,'component',axis=1)),
+    ('add_level',transformers.add_level(component,'component',axis=1)),
 ])
 
 def standard_cleaners(data_dict):
@@ -466,7 +484,7 @@ def standard_cleaners(data_dict):
         ('standardize_columns',transformers.column_standardizer(data_dict,ureg)),
         ('standardize_categories',transformers.standardize_categories(data_dict,category_map)),
         ('split_bad_categories',transformers.split_bad_categories(data_dict)),
-        # ('one_hotter',transformers.nominal_to_onehot()),
+        ('one_hotter',transformers.nominal_to_onehot()),
         ('drop_oob_values',transformers.oob_value_remover(data_dict))
     ])
 

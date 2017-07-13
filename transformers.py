@@ -5,6 +5,42 @@ import pandas as pd
 from constants import variable_type,column_names,NO_UNITS,ALL
 import logger
 
+
+
+class Resampler(BaseEstimator,TransformerMixin):
+
+    def __init__(self, resample_func,rule,groupby=None,datetime_level=None,label='right'):
+        self.resample_func = resample_func
+        self.rule = rule
+        self.groupby=groupby
+        self.datetime_level = datetime_level
+        self.label=label
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, df):
+        logger.log('*transform* RESAMPLE {}, rule={}, func={}'.format(df.shape,self.rule,self.resample_func),new_level=True)
+        if df.empty: return df
+        to_resample = df
+        if self.groupby is not None:
+            to_resample = df.groupby(level=self.groupby)
+
+        logger.log('Resampling')
+        resampled = to_resample.resample(rule=self.rule,level=self.datetime_level,label=self.label)
+
+        logger.log('Aggregating')
+        if self.resample_func == 'count':   df_out = resampled.count()
+        elif self.resample_func == 'mean':  df_out = resampled.mean()
+        elif self.resample_func == 'sum':   df_out = resampled.sum()
+        elif self.resample_func == 'std':   df_out = resampled.std()
+        elif self.resample_func == 'last':  df_out = resampled.last()
+        else:                               df_out = resampled.apply(self.resample_func)
+        logger.end_log_level()
+        return df_out
+
+
+
 class safe_unstacker(BaseEstimator,TransformerMixin):
 
     def __init__(self, *levels):
@@ -387,9 +423,33 @@ class do_nothing(BaseEstimator,TransformerMixin):
     def transform(self, df):
         return df
 
+class GroubyAndFFill(BaseEstimator,TransformerMixin):
+        def __init__(self,level=None,by=None):
+            self.level=level
+            self.by=by
+
+        def fit(self, x, y=None):
+            return self
+
+        def transform(self, df):
+            return df.groupby(level=self.level,by=self.by).ffill()
+
+class GroubyAndBFill(BaseEstimator,TransformerMixin):
+        def __init__(self,level=None,by=None):
+            self.level=level
+            self.by=by
+
+        def fit(self, x, y=None):
+            return self
+
+        def transform(self, df):
+            return df.groupby(level=self.level,by=self.by).bfill()
+
+
 """
 filtering
 """
+
 
 class column_filter(BaseEstimator,TransformerMixin):
 
@@ -406,6 +466,34 @@ class column_filter(BaseEstimator,TransformerMixin):
 
     def get_columns_to_keep(self,df, y=None, **fit_params):
         return df.columns
+
+class DataSpecFilter(column_filter):
+
+    def __init__(self,data_specs,data_dict):
+        self.data_specs = data_specs
+        self.data_dict = data_dict
+
+    def get_columns_to_keep(self, df, y=None, **fit_params):
+        if self.data_specs is None or len(self.data_specs) == 0:
+            return df.columns
+        df_mask = pd.DataFrame(index=df.columns)
+        #filter any components,units, or var_type
+        for level in [column_names.COMPONENT,column_names.UNITS,column_names.VAR_TYPE]:
+            if level in self.data_specs:
+                check = self.data_specs[level]
+                if not isinstance(check,list): check = [check]
+                df_mask[level] = df.columns.get_level_values(level).isin(check)
+
+        level = column_names.CLINICAL_SOURCE
+        if level in self.data_specs:
+            check = self.data_specs[level]
+            if not isinstance(check,list): check = [check]
+            df_mask[level] = df.apply(lambda col: clinical_source(col,self.data_dict) in check)
+
+        return df_mask.all(axis=1)
+
+def clinical_source(col,data_dict):
+     return data_dict.get_clinical_source(col.name[0])
 
 class max_col_only(column_filter):
     def get_columns_to_keep(self, df, y=None, **fit_params):
