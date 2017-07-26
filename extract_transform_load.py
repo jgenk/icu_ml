@@ -14,7 +14,7 @@ class ETLManager(object):
         self.hdf5_fname = hdf5_fname
 
 
-    def etl(self,components,operator='or',save_steps=False,overwrite=False):
+    def etl(self,components,save_steps=False,overwrite=False):
         if not overwrite:
             components = self.get_unloaded_components(components)
         if len(components) == 0: return None
@@ -39,10 +39,10 @@ class ETLManager(object):
             logger.log('Save DataFrames...',new_level=True)
             if save_steps:
                 logger.log('Save EXTRACTED DF: {}'.format(df_extracted.shape))
-                df_extracted.to_hdf(self.hdf5_fname,path='{}/{}'.format(component,'extracted'))
+                df_extracted.to_hdf(self.hdf5_fname,'{}/{}'.format(component,'extracted'))
 
                 logger.log('Save TRANSFORMED DF: {}'.format(df_transformed.shape))
-                df_transformed.to_hdf(self.hdf5_fname,path='{}/{}'.format(component,'transformed'))
+                df_transformed.to_hdf(self.hdf5_fname,'{}/{}'.format(component,'transformed'))
 
             logger.log('Save FINAL DF: {}'.format(df.shape))
             utils.deconstruct_and_write(df,self.hdf5_fname,path=component)
@@ -50,7 +50,7 @@ class ETLManager(object):
 
 
 
-            etl_info = self.get_etl_info(df_extracted,df_transformed,df)
+            etl_info = self.get_etl_info(component,df_extracted,df_transformed,df)
             all_etl_info.append(etl_info)
 
             del df_extracted,df_transformed,df
@@ -78,7 +78,7 @@ class ETLManager(object):
             where = '{} in {}'.format(column_names.ID,ids)
         return utils.read_and_reconstruct(self.hdf5_fname, path=component, where=where)
 
-    def get_etl_info(self,df_extracted,df_transformed,df_cleaned):
+    def get_etl_info(self,component,df_extracted,df_transformed,df_cleaned):
         e_ids = self.extracted_ids(df_extracted)
         e_data_count = self.extracted_data_count(df_extracted)
 

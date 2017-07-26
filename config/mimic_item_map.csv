@@ -1,138 +1,244 @@
 component,itemid
-glasgow coma scale eye opening,184
-glasgow coma scale eye opening,220739
-glasgow coma scale motor,454
-glasgow coma scale motor,223901
-blood pressure systolic,220179
-blood pressure systolic,225309
-blood pressure systolic,224167
-blood pressure systolic,220050
-blood pressure systolic,227243
-blood pressure systolic,455
-blood pressure systolic,6
-blood pressure systolic,3313
-blood pressure systolic,442
-blood pressure systolic,3315
-blood pressure systolic,51
-blood pressure systolic,3317
-blood pressure systolic,3321
-blood pressure systolic,3323
-temperature body,223761
-temperature body,678
-temperature body,223762
-temperature body,676
-glasgow coma scale verbal,723
-glasgow coma scale verbal,223900
-hemoglobin,51222
-hemoglobin,220228
-hemoglobin,814
-hemoglobin,1165
-hemoglobin,50811
-lactate,1531
-lactate,50813
-lactate,225668
-lactate,818
-vasopressin,30051
-vasopressin,2445
-vasopressin,222315
-vasopressin,1136
-vasopressin,1222
-vasopressin,2334
-vasopressin,2561
-vasopressin,7341
-vasopressin,46570
-vasopressin,42802
-vasopressin,6255
-vasopressin,2765
-vasopressin,2248
-vasopressin,42273
-vasopressin,1327
-weight body,763
-weight body,224639
-weight body,3693
-normal saline,41913
-normal saline,6190
-normal saline,20018
-normal saline,30252
-normal saline,44440
-normal saline,44053
-normal saline,4647
-normal saline,220954
-normal saline,30190
-normal saline,225158
-norepinephrine,30047
-norepinephrine,221906
-norepinephrine,30120
-oxygen saturation pulse oximetry,646
-oxygen saturation pulse oximetry,220277
-oxygen saturation pulse oximetry,228232
-blood pressure diastolic,6
-blood pressure diastolic,220180
-blood pressure diastolic,225310
-blood pressure diastolic,224643
-blood pressure diastolic,220051
-blood pressure diastolic,227242
-blood pressure diastolic,8441
-blood pressure diastolic,8364
-blood pressure diastolic,8502
-blood pressure diastolic,8440
-blood pressure diastolic,8368
-blood pressure diastolic,8503
-blood pressure diastolic,8504
-blood pressure diastolic,8507
-blood pressure diastolic,8506
-blood pressure diastolic,8555
-heart rate,211
-heart rate,220045
-heart rate,1341
-heart rate,1725
-heart rate,1332
-output urine,226560
-output urine,7672
-output urine,3686
-output urine,43053
-output urine,226559
-output urine,44103
-output urine,44834
-output urine,44706
-output urine,42892
-output urine,45415
-output urine,43987
-output urine,42666
-output urine,44237
-output urine,42592
-output urine,40069
-output urine,43931
-output urine,43348
-output urine,40405
-output urine,42810
-output urine,46180
-output urine,40055
-output urine,44253
-output urine,44325
-output urine,41857
-output urine,44824
-output urine,45991
-output urine,42042
-output urine,46177
-output urine,44684
-output urine,46658
-output urine,46578
-lactated ringers,225828
-lactated ringers,44367
-lactated ringers,2971
-lactated ringers,1634
-lactated ringers,30021
-lactated ringers,220953
-lactated ringers,46207
-lactated ringers,44184
-lactated ringers,44521
-lactated ringers,46781
-lactated ringers,44815
-respiratory rate,220210
-respiratory rate,3603
-respiratory rate,618
-respiratory rate,8113
-blood pressure mean,220181
-blood pressure mean,225312
-blood pressure mean,220052
+glasgow coma scale eye opening,184.0
+glasgow coma scale eye opening,220739.0
+glasgow coma scale motor,454.0
+glasgow coma scale motor,223901.0
+blood pressure systolic,220179.0
+blood pressure systolic,225309.0
+blood pressure systolic,224167.0
+blood pressure systolic,220050.0
+blood pressure systolic,227243.0
+blood pressure systolic,455.0
+blood pressure systolic,6.0
+blood pressure systolic,3313.0
+blood pressure systolic,442.0
+blood pressure systolic,3315.0
+blood pressure systolic,51.0
+blood pressure systolic,3317.0
+blood pressure systolic,3321.0
+blood pressure systolic,3323.0
+temperature body,223761.0
+temperature body,678.0
+temperature body,223762.0
+temperature body,676.0
+glasgow coma scale verbal,723.0
+glasgow coma scale verbal,223900.0
+hemoglobin,51222.0
+hemoglobin,220228.0
+hemoglobin,814.0
+hemoglobin,1165.0
+hemoglobin,50811.0
+lactate,1531.0
+lactate,50813.0
+lactate,225668.0
+lactate,818.0
+vasopressin,30051.0
+vasopressin,2445.0
+vasopressin,222315.0
+vasopressin,1136.0
+vasopressin,1222.0
+vasopressin,2334.0
+vasopressin,2561.0
+vasopressin,7341.0
+vasopressin,46570.0
+vasopressin,42802.0
+vasopressin,6255.0
+vasopressin,2765.0
+vasopressin,2248.0
+vasopressin,42273.0
+vasopressin,1327.0
+weight body,763.0
+weight body,224639.0
+weight body,3693.0
+normal saline,41913.0
+normal saline,6190.0
+normal saline,20018.0
+normal saline,30252.0
+normal saline,44440.0
+normal saline,44053.0
+normal saline,4647.0
+normal saline,220954.0
+normal saline,30190.0
+normal saline,225158.0
+norepinephrine,30047.0
+norepinephrine,221906.0
+norepinephrine,30120.0
+oxygen saturation pulse oximetry,646.0
+oxygen saturation pulse oximetry,220277.0
+oxygen saturation pulse oximetry,228232.0
+blood pressure diastolic,6.0
+blood pressure diastolic,220180.0
+blood pressure diastolic,225310.0
+blood pressure diastolic,224643.0
+blood pressure diastolic,220051.0
+blood pressure diastolic,227242.0
+blood pressure diastolic,8441.0
+blood pressure diastolic,8364.0
+blood pressure diastolic,8502.0
+blood pressure diastolic,8440.0
+blood pressure diastolic,8368.0
+blood pressure diastolic,8503.0
+blood pressure diastolic,8504.0
+blood pressure diastolic,8507.0
+blood pressure diastolic,8506.0
+blood pressure diastolic,8555.0
+heart rate,211.0
+heart rate,220045.0
+heart rate,1341.0
+heart rate,1725.0
+heart rate,1332.0
+output urine,226560.0
+output urine,7672.0
+output urine,3686.0
+output urine,43053.0
+output urine,226559.0
+output urine,44103.0
+output urine,44834.0
+output urine,44706.0
+output urine,42892.0
+output urine,45415.0
+output urine,43987.0
+output urine,42666.0
+output urine,44237.0
+output urine,42592.0
+output urine,40069.0
+output urine,43931.0
+output urine,43348.0
+output urine,40405.0
+output urine,42810.0
+output urine,46180.0
+output urine,40055.0
+output urine,44253.0
+output urine,44325.0
+output urine,41857.0
+output urine,44824.0
+output urine,45991.0
+output urine,42042.0
+output urine,46177.0
+output urine,44684.0
+output urine,46658.0
+output urine,46578.0
+lactated ringers,225828.0
+lactated ringers,44367.0
+lactated ringers,2971.0
+lactated ringers,1634.0
+lactated ringers,30021.0
+lactated ringers,220953.0
+lactated ringers,46207.0
+lactated ringers,44184.0
+lactated ringers,44521.0
+lactated ringers,46781.0
+lactated ringers,44815.0
+respiratory rate,220210.0
+respiratory rate,3603.0
+respiratory rate,618.0
+respiratory rate,8113.0
+blood pressure mean,220181.0
+blood pressure mean,225312.0
+blood pressure mean,220052.0
+white blood cell count,220546.0
+white blood cell count,1542.0
+white blood cell count,51516.0
+white blood cell count,51301.0
+white blood cell count,51300.0
+white blood cell count,861.0
+white blood cell count,1127.0
+red blood cell count,51493.0
+red blood cell count,833.0
+red blood cell count,51279.0
+hematocrit,813.0
+hematocrit,51480.0
+hematocrit,51221.0
+hematocrit,220545.0
+hematocrit,3761.0
+hematocrit,50810.0
+hematocrit,986.0
+hematocrit,226540.0
+mean corpuscular volume,51250.0
+mean corpuscular hemoglobin,51248.0
+mean corpuscular hemoglobin concentration,51249.0
+red cell distribution width,51277.0
+platelet count,6256.0
+platelet count,227457.0
+platelet count,51265.0
+platelet count,225678.0
+platelet count,828.0
+platelet count,3789.0
+platelet count,5661.0
+sodium serum,50983.0
+sodium serum,1536.0
+sodium serum,220645.0
+sodium serum,3726.0
+sodium serum,4195.0
+sodium serum,837.0
+sodium serum,3803.0
+sodium serum,50824.0
+sodium serum,226534.0
+sodium serum,228390.0
+potassium serum,1535.0
+potassium serum,50833.0
+potassium serum,50971.0
+potassium serum,4194.0
+potassium serum,3725.0
+potassium serum,227442.0
+potassium serum,829.0
+potassium serum,3792.0
+potassium serum,50822.0
+potassium serum,227464.0
+chloride serum,50902.0
+chloride serum,1523.0
+chloride serum,4193.0
+chloride serum,220602.0
+chloride serum,788.0
+chloride serum,3747.0
+chloride serum,50806.0
+chloride serum,226536.0
+chloride serum,3724.0
+chloride serum,228386.0
+carbon dioxide serum,787.0
+carbon dioxide serum,3810.0
+blood urea nitrogen serum,5876.0
+blood urea nitrogen serum,225624.0
+blood urea nitrogen serum,51006.0
+blood urea nitrogen serum,781.0
+blood urea nitrogen serum,3737.0
+creatinine serum,51081.0
+creatinine serum,1525.0
+creatinine serum,220615.0
+creatinine serum,50912.0
+creatinine serum,791.0
+creatinine serum,3750.0
+glucose serum,50931.0
+glucose serum,1529.0
+glucose serum,50809.0
+glucose serum,220621.0
+glucose serum,1812.0
+glucose serum,3745.0
+glucose serum,3744.0
+glucose serum,811.0
+glucose serum,226537.0
+glucose serum,228388.0
+glucose fingerstick,807.0
+glucose fingerstick,1455.0
+glucose fingerstick,1310.0
+glucose fingerstick,2338.0
+glucose fingerstick,225664.0
+glucose fingerstick,2416.0
+calcium total serum,1522.0
+calcium total serum,50893.0
+calcium total serum,786.0
+calcium total serum,3746.0
+calcium ionized serum,8177.0
+calcium ionized serum,1350.0
+calcium ionized serum,8325.0
+calcium ionized serum,225667.0
+calcium ionized serum,816.0
+calcium ionized serum,3766.0
+calcium ionized serum,50808.0
+magnesium serum,220635.0
+magnesium serum,50960.0
+magnesium serum,1532.0
+magnesium serum,821.0
+phosphorous serum,1534.0
+phosphorous serum,225677.0
+phosphorous serum,827.0

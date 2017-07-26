@@ -13,7 +13,8 @@ Feature Creation
 """
 
 class Feature(object):
-    def __init__(self,name,data_specs,resample_func,
+    def __init__(self,name,resample_func,
+                    data_specs=[],
                     pre_processor=transformers.do_nothing(),
                     fillna_method=transformers.do_nothing()):
         self.name = name
@@ -38,18 +39,16 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
                  resample_freq,                             #frequency of resampling
                  data_dict,                                 #data dict for this factory
                  ETL_manager,                               #Where is out data coming from?
-                 data_set_root,                             #characterize data sets from this factory
+                 hdf5_fname_target,                    #Where are we saving DFs
                  pre_processors=transformers.do_nothing(),  #Data-dependent processing before joining & featurizing
-                 hdf5_fname_target=None,                    #Where are we saving DFs
                  save_ETL_steps=False,                      #when we ETL, so we want to save steps?
-                 force_preprocessing=False):
+                 force_preprocessing=True):
         self.features = features
         self.resample_freq = resample_freq
         self.data_dict = data_dict
         self.ETL_manager = ETL_manager
-        self.data_set_root = data_set_root
-        self.pre_processors = pre_processors
         self.hdf5_fname_target = hdf5_fname_target
+        self.pre_processors = pre_processors
         self.save_ETL_steps = save_ETL_steps
         self.force_preprocessing = force_preprocessing
         return
@@ -100,16 +99,10 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
             self.cleaner_map = {c : clone(self.pre_processors) for c in components}
             self.fit_ids=ids
 
-        #get target fname for intermediate storage (use ETL_manager fname if none passed)
-        hdf5_fname_target = self.hdf5_fname_target
-        if hdf5_fname_target is None:
-            hdf5_fname_target = self.ETL_manager.hdf5_fname
-
-
         root = self._key(ids)
 
         #open each dataframe, preprocess, and join:
-        store = pd.HDFStore(hdf5_fname_target)
+        store = pd.HDFStore(self.hdf5_fname_target)
         paths = []
         for component in components:
             logger.log('{} - {}/{}'.format(component,components.index(component)+1,len(components)),new_level=True)
@@ -138,7 +131,7 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
 
 
             logger.log('SAVE DF... {} -> {}'.format(df_processed.shape,comp_path))
-            utils.deconstruct_and_write(df_processed,hdf5_fname_target,comp_path)
+            utils.deconstruct_and_write(df_processed,self.hdf5_fname_target,comp_path)
             del df,df_processed
 
             logger.end_log_level()
@@ -148,12 +141,12 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
 
         joined_path = '{}/{}'.format(root,make_list_hash(component))
         if (joined_path not in store) or self.force_preprocessing:
-            utils.smart_join(hdf5_fname_target,paths,joined_path,ids)
+            utils.smart_join(self.hdf5_fname_target,paths,joined_path,ids)
 
         store.close()
 
         logger.log('Read JOINED DF')
-        df_joined = utils.read_and_reconstruct(hdf5_fname_target,joined_path)
+        df_joined = utils.read_and_reconstruct(self.hdf5_fname_target,joined_path)
 
         logger.end_log_level()
 
@@ -199,9 +192,8 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
 
     def _key(self,ids):
 
-        return '{}/{}/{}'.format(self.data_set_root,
-                                    make_list_hash(self.fit_ids),
-                                    make_list_hash(ids))
+        return '{}/{}'.format(make_list_hash(self.fit_ids),
+                              make_list_hash(ids))
 
 def make_list_hash(l):
     #need to sort and make sure list are unique before hashing

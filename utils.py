@@ -194,6 +194,34 @@ def _deconstucted_paths(path):
     col_path = '{}/{}'.format(path,'columns')
     return data_path,col_path
 
+def complex_row_mask(df,specs,operator='or'):
+    #init our mask datframe with row index of passed in dataframe
+    df_mask = pd.DataFrame(index=df.index)
+
+    #make sure our specs are a list
+    if not isinstance(specs,list): specs = [specs]
+
+    #if we have no specs, then we are not going to mask anything
+    if (specs is None) or (len(specs) == 0):
+        df_mask.loc[:,0] = True
+
+    #apply specs to create mask
+    for idx,spec in enumerate(specs):
+        df_spec_mask = pd.DataFrame(index=df.index)
+        for col_name,spec_info in spec.iteritems():
+            if callable(spec_info):
+                df_spec_mask.loc[:,col_name] = df.loc[:,col_name].apply(spec_info)
+            else:
+                if not isinstance(spec_info,list): spec_info = [spec_info]
+                df_spec_mask.loc[:,col_name] = df.loc[:,col_name].isin(spec_info)
+        df_mask.loc[:,idx] = df_spec_mask.all(axis=1)
+
+    #if or, will will include rows from each spec.
+    #   if and, only rows that meet criteria of EVERY spec ar included
+    if operator == 'or' : mask = df_mask.any(axis=1)
+    else: mask = df_mask.all(axis=1)
+    return mask
+
 def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=True):
 
     logger.log('Smart join: n={}, {}'.format(len(ids),paths),new_level=True)
@@ -218,9 +246,13 @@ def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=
         df_slice = None
         # for path in df_dict.keys():
         for path in paths:
-            logger.log(path)
-            if need_deconstruct: slice_to_add = read_and_reconstruct(hdf5_fname,path,where=where)
-            else: slice_to_add = pd.read_hdf(hdf5_fname,path,where=where)
+            try:
+                logger.log(path)
+                if need_deconstruct: slice_to_add = read_and_reconstruct(hdf5_fname,path,where=where)
+                else: slice_to_add = pd.read_hdf(hdf5_fname,path,where=where)
+            except KeyError:
+                logger.end_log_level()
+                continue
 
             if df_slice is None: df_slice = slice_to_add
             else:

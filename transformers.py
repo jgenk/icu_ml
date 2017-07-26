@@ -34,6 +34,8 @@ class Resampler(BaseEstimator,TransformerMixin):
         elif self.resample_func == 'mean':  df_out = resampled.mean()
         elif self.resample_func == 'sum':   df_out = resampled.sum()
         elif self.resample_func == 'std':   df_out = resampled.std()
+        elif self.resample_func == 'max':   df_out = resampled.max()
+        elif self.resample_func == 'min':   df_out = resampled.min()
         elif self.resample_func == 'last':  df_out = resampled.last()
         else:                               df_out = resampled.apply(self.resample_func)
         logger.end_log_level()
@@ -194,7 +196,7 @@ class split_dtype(BaseEstimator,TransformerMixin):
         is_string = pd.isnull(df_numeric) & ~pd.isnull(df)
 
         df_string = df[is_string].dropna(how='all')
-        tuples = [ col_name if col_name[1] == NO_UNITS else (col_name[0],NO_UNITS,utils.append_to_description(*map(str,col_name[3:0:-1]))) for col_name in df_string.columns]
+        tuples = [(col_name[0],NO_UNITS,utils.append_to_description(*map(str,col_name[3:0:-1]))) for col_name in df_string.columns]
         df_string.columns = pd.MultiIndex.from_tuples(tuples,names = df_string.columns.names)
         df_string = utils.add_same_val_index_level(df_string,level_val='string',level_name='dtype',axis=1)
 
@@ -474,26 +476,16 @@ class DataSpecFilter(column_filter):
         self.data_dict = data_dict
 
     def get_columns_to_keep(self, df, y=None, **fit_params):
-        if self.data_specs is None or len(self.data_specs) == 0:
-            return df.columns
-        df_mask = pd.DataFrame(index=df.columns)
-        #filter any components,units, or var_type
-        for level in [column_names.COMPONENT,column_names.UNITS,column_names.VAR_TYPE]:
-            if level in self.data_specs:
-                check = self.data_specs[level]
-                if not isinstance(check,list): check = [check]
-                df_mask[level] = df.columns.get_level_values(level).isin(check)
 
-        level = column_names.CLINICAL_SOURCE
-        if level in self.data_specs:
-            check = self.data_specs[level]
-            if not isinstance(check,list): check = [check]
-            df_mask[level] = df.apply(lambda col: clinical_source(col,self.data_dict) in check)
+        df_cols = pd.DataFrame(map(list,df.columns.tolist()),columns=df.columns.names)
 
-        return df_mask.all(axis=1)
+        clin_src = df_cols.loc[:,column_names.COMPONENT].apply(self.data_dict.get_clinical_source)
+        df_cols[column_names.CLINICAL_SOURCE] = clin_src
 
-def clinical_source(col,data_dict):
-     return data_dict.get_clinical_source(col.name[0])
+        mask = utils.complex_row_mask(df_cols,self.data_specs)
+        df_cols.drop(column_names.CLINICAL_SOURCE,axis=1,inplace=True)
+
+        return [tuple(x) for x in df_cols[mask].to_records(index=False)]
 
 class max_col_only(column_filter):
     def get_columns_to_keep(self, df, y=None, **fit_params):

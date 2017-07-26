@@ -1,4 +1,6 @@
 percent = 0.01*count
+thousand-count = 1000*count = x10e3
+million-count = 1000000*count = x10e6
 number = count
 charge = [charge]
 milliequivalent = 1 * mole / charge = mEq
@@ -21,4 +23,5 @@ inspiration = breath = insp
 mcg = 1*microgram
 dose = []
 gm = 1*gram
-score = [] 
+score = []
+no_units = []

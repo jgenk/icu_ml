@@ -43,7 +43,9 @@ UOM_MAP = {
      '\?F':'degF',
      '\?C':'degC',
      'Uhr':'U/hr',
-     'Umin':'U/min'
+     'Umin':'U/min',
+     '/mic l':'1/uL',
+     'K/uL':'x10e3/uL'
     }
 """
 EXPLORING MIMIC-III database
@@ -51,9 +53,10 @@ EXPLORING MIMIC-III database
 
 class explorer(object):
 
-    def __init__(self, mimic_conn):
-
-        columns_to_keep = ['component','abbreviation','itemid','linksto','category','unitname']
+    def __init__(self, mimic_conn=None):
+        if mimic_conn is None:
+            mimic_conn = connect()
+        columns_to_keep = ['label','abbreviation','itemid','linksto','category','unitname']
         self.df_all_defs = item_defs(mimic_conn)[columns_to_keep]
         self.df_all_defs.set_index('itemid',inplace=True, drop=True)
 
@@ -61,7 +64,7 @@ class explorer(object):
 
         results = None
         for term in terms:
-            score = self.df_all_defs[['category','component','abbreviation','unitname']].applymap(lambda x: fuzzy_score(str(x),term)).max(axis=1)
+            score = self.df_all_defs[['category','label','abbreviation','unitname']].applymap(lambda x: fuzzy_score(str(x),term)).max(axis=1)
             if results is None: results = score
             else: results = pd.concat([results, score], axis=1).max(axis=1)
 
@@ -81,6 +84,12 @@ def fuzzy_score(x,y):
     bonus = 10 if (x in y) or (y in x) else 0
     return score + bonus
 
+def add_item_mapping(component,item_ids,item_map_fpath='config/mimic_item_map.csv'):
+    item_map = pd.read_csv(item_map_fpath)
+    new_mappings = pd.DataFrame([(component,item_id) for item_id in item_ids],columns=['component','itemid'])
+    item_map = pd.concat([item_map,new_mappings]).reset_index(drop=True)
+    item_map.to_csv(item_map_fpath, index=False)
+    return item_map
 
 """
 EXTRACTING Data from MIMIC-III
@@ -92,13 +101,14 @@ class MimicETLManager(ETLManager):
 
     def __init__(self,hdf5_fname,mimic_item_map_fname,data_dict):
         self.conn = connect()
-        self.item_map = pd.read_csv(mimic_item_map_fname)
+        self.item_map_fname = mimic_item_map_fname
         self.data_dict = data_dict
         cleaners = standard_cleaners(data_dict)
         super(MimicETLManager,self).__init__(cleaners,hdf5_fname)
 
     def extract(self,component):
-        return extract_component(self.conn,component,self.item_map)
+        item_map = pd.read_csv(self.item_map_fname)
+        return extract_component(self.conn,component,item_map)
 
     def transform(self,df,component):
         transformers = transform_pipeline(component,self.data_dict)
@@ -363,7 +373,6 @@ def item_defs(mimic_conn):
     df_items = pd.read_sql_query('SELECT * FROM mimiciii.d_items',mimic_conn)
     df_labitems = pd.read_sql_query('SELECT * FROM mimiciii.d_labitems',mimic_conn)
     df_labitems['linksto'] = 'labevents'
-
     df_all_items = pd.concat([df_labitems,df_items])
     return df_all_items
 
@@ -395,18 +404,18 @@ TRANSFORM Data extracted from MIMIC-III
 
 class CleanUnits(BaseEstimator,TransformerMixin):
 
-    def __init__(self,data_dict,component):
+    def __init__(self,component,data_dict):
         self.data_dict = data_dict
         self.component = component
 
-        def fit(self, x, y=None):
-            return self
+    def fit(self, x, y=None):
+        return self
 
-        def transform(self, df):
-            logger.log('Clean UOM',new_level=True)
-            df = clean_uom(df,self.component,self.data_dict)
-            logger.end_log_level()
-            return df
+    def transform(self, df):
+        logger.log('Clean UOM',new_level=True)
+        df = clean_uom(df,self.component,self.data_dict)
+        logger.end_log_level()
+        return df
 
 def clean_uom(df,component,data_dict):
     grouped = df.groupby(column_names.UNITS)
@@ -467,13 +476,13 @@ class unstacker(transformers.safe_unstacker):
     def __init__(self):
         super(unstacker,self).__init__(column_names.UNITS,column_names.DESCRIPTION)
 
-def transform_pipeline(data_dict,component):
+def transform_pipeline(component,data_dict):
     return Pipeline([
-    ('clean_units',CleanUnits(data_dict,component))
-    ('clean_df',clean_extract()),
-    ('unstack',unstacker()),
-    ('add_level',transformers.add_level(component,'component',axis=1)),
-])
+        ('clean_units',CleanUnits(component,data_dict)),
+        ('clean_df',clean_extract()),
+        ('unstack',unstacker()),
+        ('add_level',transformers.add_level(component,'component',axis=1)),
+    ])
 
 def standard_cleaners(data_dict):
     category_map = mimic_category_map(data_dict)

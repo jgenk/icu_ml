@@ -49,13 +49,14 @@ class data_dictionary(object):
 
     def add_panel(self,panel_name,panel_map):
         """
-        panel map: {table_name:id}
+        panel map: {table_name:[ids]}
         """
         new_panel_id = _next_id(self.tables.panels)
         new_list_id = _next_id(self.tables.lists)
         self.tables.panels.loc[new_panel_id] = [panel_name,new_list_id]
-        for ref_table,ref_id in panel_map:
-            self.add_item_to_panel(new_panel_id,ref_table,ref_id)
+        for ref_table,ref_ids in panel_map.iteritems():
+            for ref_id in ref_ids:
+                self.add_item_to_panel(new_panel_id,ref_table,ref_id)
         return new_panel_id
 
     def add_item_to_panel(self,panel_id,ref_table,ref_id):
@@ -116,28 +117,18 @@ class data_dictionary(object):
     def get_variable_type(self,component):
         return self.defs_for_component(component).loc[:,'variable_type'].iloc[0]
 
-    def get_defs(self,data_specs,operator='and'):
-        return _filter_defs(self.tables.definitions,data_specs)
+    def get_defs(self,data_specs=[],operator='or'):
+        return _filter_defs(self.tables.definitions,data_specs,operator)
 
-    def get_components(self,specs={},panel_id=None,operator='and'):
+    def get_components(self,specs=[],panel_id=None,operator='or'):
         if panel_id is not None:
             defs = self.get_panel_defintions(panel_id)
         else:
             defs = self.tables.definitions
         return _filter_defs(defs,specs,operator).component.unique().tolist()
 
-def _filter_defs(defs,specs,operator='and'):
-    df_mask = pd.DataFrame(index=defs.index)
-    if len(specs) == 0: df_mask.loc[:,0] = True
-
-    for col_name,vals in specs.iteritems():
-        if not isinstance(vals,list): vals = [vals]
-        df_mask.loc[:,col_name] = (defs.loc[:,col_name].isin(vals))
-
-    if operator == 'or': mask = df_mask.any(axis=1)
-    else: mask = df_mask.all(axis=1)
-
-    return defs.loc[mask]
+def _filter_defs(defs,specs,operator='or'):
+    return defs.loc[utils.complex_row_mask(defs,specs,operator)]
 
 def _next_id(df):
     return max(df.index.tolist())+1

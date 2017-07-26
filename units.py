@@ -35,6 +35,12 @@ class MedicalUreg(UnitRegistry):
             units = self.smart_parse_units(units)
         return units.dimensionality == UnitsContainer({'[temperature]':1.0})
 
+    def is_rate(self,units):
+        if type(units) is str:
+            units = self.smart_parse_units(units)
+        return units.dimensionality.get('[time]',0) == -1.0
+
+
 def smart_parse_units(unit,ureg):
     try:
         parsed_units = ureg.parse_units(unit)
