@@ -57,7 +57,8 @@ class explorer(object):
         if mimic_conn is None:
             mimic_conn = connect()
         columns_to_keep = ['label','abbreviation','itemid','linksto','category','unitname']
-        self.df_all_defs = item_defs(mimic_conn)[columns_to_keep]
+        self.mimic_conn = mimic_conn
+        self.df_all_defs = item_defs(self.mimic_conn)[columns_to_keep]
         self.df_all_defs.set_index('itemid',inplace=True, drop=True)
 
     def search(self,terms,loinc_code=None):
@@ -70,6 +71,18 @@ class explorer(object):
 
         results.name = 'score'
         return self.df_all_defs.join(results.to_frame()).sort_values('score',ascending=False)
+
+    def investigate(self, itemid,upper_limit):
+        info = self.df_all_defs.loc[itemid]
+        table = info.loc['linksto']
+
+        df = pd.read_sql_query('SELECT * FROM mimiciii.{} WHERE itemid={}'.format(table,itemid),self.mimic_conn)
+
+        print df.describe()
+        print df.valueuom.value_counts()
+        df.loc[df.valuenum < upper_limit].valuenum.hist()
+
+        return df
 
 
 def fuzzy_score(x,y):
