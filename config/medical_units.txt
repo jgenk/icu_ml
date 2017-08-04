@@ -7,7 +7,7 @@ milliequivalent = 1 * mole / charge = mEq
 milliosmole = 1 * mEq / kg = mOsm = mosm
 beat = count
 beat/minute = 1 * beat / minute
-international unit = [international unit] = IU
+international unit = [] = IU
 unit = [unit] = U
 X = [magnification]
 high power field = 40 * X = hpf

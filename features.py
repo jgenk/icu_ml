@@ -39,10 +39,11 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
                  resample_freq,                             #frequency of resampling
                  data_dict,                                 #data dict for this factory
                  ETL_manager,                               #Where is out data coming from?
-                 hdf5_fname_target,                    #Where are we saving DFs
+                 hdf5_fname_target,                         #Where are we saving DFs
                  pre_processors=transformers.do_nothing(),  #Data-dependent processing before joining & featurizing
                  save_ETL_steps=False,                      #when we ETL, so we want to save steps?
-                 force_preprocessing=True):
+                 force_preprocessing=True,
+                 panel_id=None):
         self.features = features
         self.resample_freq = resample_freq
         self.data_dict = data_dict
@@ -51,6 +52,7 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
         self.pre_processors = pre_processors
         self.save_ETL_steps = save_ETL_steps
         self.force_preprocessing = force_preprocessing
+        self.panel_id=panel_id
         return
 
     def transform(self, X):
@@ -88,7 +90,8 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
 
     def _preprocess(self,ids,fit,index_to_add=None,y=None,**fit_params):
 
-        components = components_for_features(self.features,self.data_dict)
+        components = components_for_features(self.features,self.data_dict,self.panel_id)
+        components = sorted(map(str,components))
         logger.log('PRE-PROCESSING & JOIN: #C={}, {}'.format(len(components),components),new_level=True)
 
         #make sure everything is loaded
@@ -139,7 +142,7 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
 
         #Join all pre-processed dataframes using pytables
 
-        joined_path = '{}/{}'.format(root,make_list_hash(component))
+        joined_path = '{}/{}'.format(root,utils.make_list_hash(components))
         if (joined_path not in store) or self.force_preprocessing:
             utils.smart_join(self.hdf5_fname_target,paths,joined_path,ids)
 
@@ -192,22 +195,15 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
 
     def _key(self,ids):
 
-        return '{}/{}'.format(make_list_hash(self.fit_ids),
-                              make_list_hash(ids))
+        return '{}/{}'.format(utils.make_list_hash(self.fit_ids),
+                              utils.make_list_hash(ids))
 
-def make_list_hash(l):
-    #need to sort and make sure list are unique before hashing
-    l = sorted(list(set(l)))
 
-    #use a hash to make sure store this set of ids uniquely
-    key = hash(''.join(map(str,l)))
 
-    return key
-
-def components_for_features(feature_list,data_dict):
+def components_for_features(feature_list,data_dict,panel_id=None):
     components = []
     for ds in [f.data_specs for f in feature_list]:
-        components += data_dict.get_components(ds)
+        components += data_dict.get_components(ds,panel_id=panel_id)
     components = list(set(components))
     return components
 

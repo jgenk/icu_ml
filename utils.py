@@ -250,8 +250,9 @@ def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=
                 logger.log(path)
                 if need_deconstruct: slice_to_add = read_and_reconstruct(hdf5_fname,path,where=where)
                 else: slice_to_add = pd.read_hdf(hdf5_fname,path,where=where)
-            except KeyError:
-                logger.end_log_level()
+            except KeyError as err:
+                logger.log(end_prev=True,start=False)
+                print err
                 continue
 
             if df_slice is None: df_slice = slice_to_add
@@ -271,6 +272,15 @@ def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=
     logger.end_log_level()
 
     return store
+
+def make_list_hash(l):
+    #need to sort and make sure list are unique before hashing
+    l = sorted(list(set(l)))
+
+    #use a hash to make sure store this set of ids uniquely
+    key = hash(''.join(map(str,l)))
+
+    return key
 
 """
 Dask intelligent join
