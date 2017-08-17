@@ -133,6 +133,9 @@ class MimicETLManager(ETLManager):
     def extracted_data_count(self,df_extracted):
         return df_extracted[column_names.VALUE].count()
 
+    def all_ids(self):
+        return get_all_hadm_ids(self.conn)
+
 
 def extract_component(mimic_conn,component,item_map,hadm_ids=ALL):
     itemids = items_for_components(item_map,[component])
@@ -395,8 +398,9 @@ def items_for_components(item_map,components=ALL):
     items = item_map.itemid.unique().astype(int).tolist()
     return items
 
-def get_all_hadm_ids():
-    conn = connect()
+def get_all_hadm_ids(conn=None):
+    if conn is None:
+        conn = connect()
     all_ids = pd.read_sql_query('SELECT hadm_id from mimiciii.admissions',conn)['hadm_id']
     all_ids = all_ids[~pd.isnull(all_ids)]
     return all_ids.astype(int).sort_values().tolist()

@@ -7,41 +7,6 @@ import logger
 
 
 
-class Resampler(BaseEstimator,TransformerMixin):
-
-    def __init__(self, resample_func,rule,groupby=None,datetime_level=None,label='right'):
-        self.resample_func = resample_func
-        self.rule = rule
-        self.groupby=groupby
-        self.datetime_level = datetime_level
-        self.label=label
-
-    def fit(self, x, y=None):
-        return self
-
-    def transform(self, df):
-        logger.log('*transform* RESAMPLE {}, rule={}, func={}'.format(df.shape,self.rule,self.resample_func),new_level=True)
-        if df.empty: return df
-        to_resample = df
-        if self.groupby is not None:
-            to_resample = df.groupby(level=self.groupby)
-
-        logger.log('Resampling')
-        resampled = to_resample.resample(rule=self.rule,level=self.datetime_level,label=self.label)
-
-        logger.log('Aggregating')
-        if self.resample_func == 'count':   df_out = resampled.count()
-        elif self.resample_func == 'mean':  df_out = resampled.mean()
-        elif self.resample_func == 'sum':   df_out = resampled.sum()
-        elif self.resample_func == 'std':   df_out = resampled.std()
-        elif self.resample_func == 'max':   df_out = resampled.max()
-        elif self.resample_func == 'min':   df_out = resampled.min()
-        elif self.resample_func == 'last':  df_out = resampled.last()
-        else:                               df_out = resampled.apply(self.resample_func)
-        logger.end_log_level()
-        return df_out
-
-
 
 class safe_unstacker(BaseEstimator,TransformerMixin):
 
@@ -400,22 +365,33 @@ class same_index_aggregator(BaseEstimator,TransformerMixin):
 Fill NA
 """
 
-class fill_mean(BaseEstimator,TransformerMixin):
+class NaNFiller(BaseEstimator,TransformerMixin):
 
-    def fit(self, df, y=None):
-        self.means = df.mean()
+    def fit(self, X, y, **fit_params):
+        self.fill_vals = self.get_fill_vals(X, y, **fit_params)
         return self
 
-    def transform(self, df):
-        return df.apply(lambda col: col.fillna(self.means[col.name]))
+    def transform(self,df):
+        return df.apply(lambda col: col.fillna(self.fill_vals[col.name]))
 
-class fill_zero(BaseEstimator,TransformerMixin):
+    def get_fill_vals(self, X, y, **fit_params):
+        return pd.Series(np.NaN,index=X.columns)
 
-    def fit(self, x, y=None):
-        return self
+class FillerZero(NaNFiller):
 
-    def transform(self, df):
-        return df.fillna(0)
+    def get_fill_vals(self, X, y, **fit_params):
+        return pd.Series(0,index=X.columns)
+
+class FillerMean(NaNFiller):
+
+    def get_fill_vals(self, X, y, **fit_params):
+        return X.mean()
+
+class FillerMode(NaNFiller):
+
+    def get_fill_vals(self, X, y, **fit_params):
+        return X.mode().iloc[0]
+
 
 class do_nothing(BaseEstimator,TransformerMixin):
 
@@ -425,7 +401,7 @@ class do_nothing(BaseEstimator,TransformerMixin):
     def transform(self, df):
         return df
 
-class GroubyAndFFill(BaseEstimator,TransformerMixin):
+class GroupbyAndFFill(BaseEstimator,TransformerMixin):
         def __init__(self,level=None,by=None):
             self.level=level
             self.by=by
@@ -436,7 +412,7 @@ class GroubyAndFFill(BaseEstimator,TransformerMixin):
         def transform(self, df):
             return df.groupby(level=self.level,by=self.by).ffill()
 
-class GroubyAndBFill(BaseEstimator,TransformerMixin):
+class GroupbyAndBFill(BaseEstimator,TransformerMixin):
         def __init__(self,level=None,by=None):
             self.level=level
             self.by=by
@@ -463,27 +439,25 @@ class column_filter(BaseEstimator,TransformerMixin):
 
     def transform(self, df):
         logger.log('*transform* Filter columns ({}) {}'.format(self.__class__.__name__, df.shape))
-        if df.empty: return df.drop(df.columns,axis=1)
-        return df.loc[:,self.cols_to_keep]
+        df_out = None
+        if df.empty or len(self.cols_to_keep) == 0: df_out = df.drop(df.columns,axis=1)
+        else: df_out = df.loc[:,self.cols_to_keep]
+        logger.log(end_prev=True)
+        return df_out
 
     def get_columns_to_keep(self,df, y=None, **fit_params):
         return df.columns
 
 class DataSpecFilter(column_filter):
 
-    def __init__(self,data_specs,data_dict):
+    def __init__(self,data_specs):
         self.data_specs = data_specs
-        self.data_dict = data_dict
 
     def get_columns_to_keep(self, df, y=None, **fit_params):
 
         df_cols = pd.DataFrame(map(list,df.columns.tolist()),columns=df.columns.names)
 
-        clin_src = df_cols.loc[:,column_names.COMPONENT].apply(self.data_dict.get_clinical_source)
-        df_cols[column_names.CLINICAL_SOURCE] = clin_src
-
         mask = utils.complex_row_mask(df_cols,self.data_specs)
-        df_cols.drop(column_names.CLINICAL_SOURCE,axis=1,inplace=True)
 
         return [tuple(x) for x in df_cols[mask].to_records(index=False)]
 
@@ -499,7 +473,7 @@ class remove_small_columns(column_filter):
         self.threshold = threshold
 
     def get_columns_to_keep(self, df, y=None, **fit_params):
-        return df.apply(utils.smart_count) > self.threshold
+        return df.loc[:,df.apply(utils.smart_count) > self.threshold].columns
 
 
 class multislice_filter(column_filter):
@@ -548,7 +522,7 @@ class func_filter(column_filter):
         self.filter_func = filter_func
 
     def get_columns_to_keep(self,df, y=None, **fit_params):
-        return df.apply(self.filter_func)
+        return df.loc[:,df.apply(self.filter_func)].columns
 
 
 class record_threshold(func_filter):
@@ -598,17 +572,18 @@ def summable_only_filter(col,ureg,ignore_component_list):
     should_ignore_component = lambda col: (col.name[0] in ignore_component_list)
     return lambda col: is_summable_unit(col.name) and not should_ignore_component(col.name)
 
-class dropna(BaseEstimator,TransformerMixin):
+class DropNaN(BaseEstimator,TransformerMixin):
 
-    def __init__(self,axis=0,how='all'):
+    def __init__(self,axis=0,how='any',thresh=None):
         self.axis=axis
         self.how=how
+        self.thresh=thresh
 
     def fit(self, df, y=None):
         return self
 
     def transform(self, df):
-        return df.dropna(axis=self.axis,how=self.how)
+        return df.dropna(axis=self.axis,how=self.how,thresh=self.thresh)
 
 class filter_ids(BaseEstimator,TransformerMixin):
 
@@ -646,3 +621,88 @@ class more_than_n_component(BaseEstimator,TransformerMixin):
         good_ids = df.loc[:,[self.component]].dropna(how='all').groupby(level=column_names.ID).count() > self.n
         good_ids = good_ids.loc[good_ids.iloc[:,0]].index.unique().tolist()
         return df.loc[df.index.get_level_values(column_names.ID).isin(good_ids)]
+
+"""
+Simple Data Manipulation
+"""
+
+class TimeShifter(TransformerMixin,BaseEstimator):
+
+    def __init__(self,datetime_level,shift='infer',n=1):
+        self.shift=shift
+        self.datetime_level = datetime_level
+        self.n=n
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, df):
+        shift = self.shift
+        if shift == 'infer':
+            infer_freq = lambda grp: grp.index.get_level_values(self.datetime_level).inferred_freq
+            inferred_freqs = df.groupby(level=column_names.ID).apply(infer_freq)
+            shift = inferred_freqs.value_counts().sort_values().index[-1]
+        df = df.reset_index(level=self.datetime_level)
+        df.loc[:,self.datetime_level] = df.loc[:,self.datetime_level] + self.n*pd.Timedelta(shift)
+        df.set_index(self.datetime_level,append=True,inplace=True)
+        return df
+
+class RowShifter(TransformerMixin,BaseEstimator):
+
+    def __init__(self,n):
+        self.n=n
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, df):
+        return df.shift(self.n)
+
+class Replacer(TransformerMixin,BaseEstimator):
+
+    def __init__(self,to_replace=None, value=None, regex=False, method='pad'):
+        self.to_replace = to_replace
+        self.value = value
+        self.regex=regex
+        self.method = method
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, df):
+        return df.replace(
+                    to_replace=self.to_replace,
+                    value=self.value,
+                    regex=self.regex,
+                    method=self.method
+                )
+class Delta(TransformerMixin,BaseEstimator):
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, df):
+
+        df_last = df.ffill().dropna(how='any')
+        df_last = utils.add_same_val_index_level(df_last,'last','temp',axis=1)
+
+
+        df_next = df.shift(-1).dropna(how='any')
+        df_next = utils.add_same_val_index_level(df_next,'next','temp',axis=1)
+
+        df_all = df_last.join(df_next,how='inner')
+        return df_all.loc[:,'next'] - df_all.loc[:,'last']
+
+class ToGroupby(TransformerMixin,BaseEstimator):
+
+    def __init__(self, by=None, axis=0, level=None, as_index=True):
+        self.by=by
+        self.axis=axis
+        self.level=level
+        self.as_index = as_index
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, df):
+        return df.groupby(by=self.by, axis=self.axis, level=self.level, as_index=self.as_index)

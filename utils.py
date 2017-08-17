@@ -138,13 +138,14 @@ def smart_count(col):
 
     return col.count()
 
+
 """
 Pytables/HDF5 I/O with axis deconstruction
 """
 
 def read_and_reconstruct(hdf5_fname,path,where=None):
     # Get all paths for dataframes in store
-    data_path,col_path = _deconstucted_paths(path)
+    data_path,col_path = deconstucted_paths(path)
 
     data = pd.read_hdf(hdf5_fname,data_path,where=where)
     columns = pd.read_hdf(hdf5_fname,col_path)
@@ -172,7 +173,7 @@ def deconstruct_and_write(df,hdf5_fname,path,append=False):
     data,columns = deconstruct_df(df)
 
     # Get all paths for dataframes in store
-    data_path,col_path = _deconstucted_paths(path)
+    data_path,col_path = deconstucted_paths(path)
 
     #Open store and save df
     store = pd.HDFStore(hdf5_fname)
@@ -189,7 +190,7 @@ def deconstruct_df(df):
     data.columns = [i for i in range(df.shape[1])]
     return data,columns
 
-def _deconstucted_paths(path):
+def deconstucted_paths(path):
     data_path = '{}/{}'.format(path,'data')
     col_path = '{}/{}'.format(path,'columns')
     return data_path,col_path
@@ -222,15 +223,23 @@ def complex_row_mask(df,specs,operator='or'):
     else: mask = df_mask.all(axis=1)
     return mask
 
-def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=True):
+def smart_join(hdf5_fname,paths,joined_path,ids,
+                                        chunksize=5000,
+                                        need_deconstruct=True,
+                                        hdf5_fname_for_join=None,
+                                        overwrite=True):
 
     logger.log('Smart join: n={}, {}'.format(len(ids),paths),new_level=True)
 
-    store = pd.HDFStore(hdf5_fname)
-    if joined_path in store:
-        del store[joined_path]
-    store.close()
+    if hdf5_fname_for_join is None: hdf5_fname_for_join=hdf5_fname
 
+    store = pd.HDFStore(hdf5_fname_for_join)
+    if (joined_path in store):
+        if overwrite: del store[joined_path]
+        else :
+            store.close()
+            logger.end_log_level()
+            return hdf5_fname_for_join
     #sort ids, should speed up where clauses and selects
     ids = sorted(ids)
 
@@ -263,15 +272,15 @@ def smart_join(hdf5_fname,paths,joined_path,ids,chunksize=5000,need_deconstruct=
         logger.end_log_level()
         logger.log('Append slice')
 
-        if need_deconstruct: deconstruct_and_write(df_slice,hdf5_fname,joined_path,append=True)
-        else: df_slice.to_hdf(joined_path,append=True,format='t')
+        if need_deconstruct: deconstruct_and_write(df_slice,hdf5_fname_for_join,joined_path,append=True)
+        else: df_slice.to_hdf(hdf5_fname_for_join,joined_path,append=True,format='t')
 
         del df_slice
 
     logger.end_log_level()
     logger.end_log_level()
 
-    return store
+    return hdf5_fname_for_join
 
 def make_list_hash(l):
     #need to sort and make sure list are unique before hashing

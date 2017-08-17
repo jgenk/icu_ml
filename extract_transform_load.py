@@ -69,7 +69,6 @@ class ETLManager(object):
         store.close()
         return unloaded
 
-
     def open_df(self,component,ids=None):
         #open dataframe, assume in root directory
         where = None
@@ -115,4 +114,8 @@ class ETLManager(object):
 
     @abc.abstractmethod
     def extracted_data_count(self,df_extracted):
+        return
+
+    @abc.abstractmethod
+    def all_ids(self):
         return
