@@ -11,6 +11,7 @@ import units
 import transformers
 import dask.dataframe as dd
 from extract_transform_load import ETLManager
+import matplotlib.pyplot as plt
 
 ITEMID = 'itemid'
 SUBINDEX = 'subindex'
@@ -78,9 +79,27 @@ class explorer(object):
 
         df = pd.read_sql_query('SELECT * FROM mimiciii.{} WHERE itemid={}'.format(table,itemid),self.mimic_conn)
 
-        print df.describe()
+        print df.describe(include='all')
+
+        #value
+        print 'value count:',df.value.count()
+        value = df.value
+        if value.count() > 0:
+            print value.value_counts()/df.value.count()
+            value.value_counts().plot('bar')
+            plt.show()
+
+        #valuenum
+        print 'valuenum count:',df.valuenum.count()
+        valuenum = df.loc[df.valuenum < upper_limit].valuenum
+        if valuenum.count() > 0:
+            valuenum.hist()
+            plt.show()
+
+        print 'UOM info:'
         print df.valueuom.value_counts()
-        df.loc[df.valuenum < upper_limit].valuenum.hist()
+
+
 
         return df
 

@@ -8,8 +8,12 @@ class MedicalUreg(UnitRegistry):
         super(MedicalUreg, self).__init__(**kwargs)
         self.load_definitions(medical_uom_defs)
 
-    def smart_parse_units(self,units):
-        return smart_parse_units(units,self)
+    def parse_units(self,units):
+        try:
+            parsed_units = super(MedicalUreg,self).parse_units(units)
+        except:
+            parsed_units = super(MedicalUreg,self).parse_units(units.lower())
+        return parsed_units
 
     def same_units(self,unit1,unit2):
         return same_units(unit1,unit2,self)
@@ -22,38 +26,38 @@ class MedicalUreg(UnitRegistry):
 
     def is_volume(self,units):
         if type(units) is str:
-            units = self.smart_parse_units(units)
+            units = self.parse_units(units)
         return is_volume(units)
 
     def is_mass(self,units):
         if type(units) is str:
-            units = self.smart_parse_units(units)
+            units = self.parse_units(units)
         return is_mass(units)
 
     def is_temp(self,units):
         if type(units) is str:
-            units = self.smart_parse_units(units)
+            units = self.parse_units(units)
         return units.dimensionality == UnitsContainer({'[temperature]':1.0})
 
     def is_rate(self,units):
         if type(units) is str:
-            units = self.smart_parse_units(units)
+            units = self.parse_units(units)
         return units.dimensionality.get('[time]',0) == -1.0
 
 
-def smart_parse_units(unit,ureg):
+def smart_parse_units(units,ureg):
     try:
-        parsed_units = ureg.parse_units(unit)
+        parsed_units = ureg.parse_units(units)
     except:
-        parsed_units = ureg.parse_units(unit.lower())
+        parsed_units = ureg.parse_units(units.lower())
     return parsed_units
 
 
 def same_units(unit1,unit2,ureg):
-    return ureg.parse_units(unit1,ureg) == ureg.parse_units(unit2,ureg)
+    return ureg.parse_units(unit1) == ureg.parse_units(unit2)
 
 def same_dimensionality(unit1,unit2,ureg):
-    return smart_parse_units(unit1,ureg).dimensionality == smart_parse_units(unit2,ureg).dimensionality
+    return ureg.parse_units(unit1).dimensionality == ureg.parse_units(unit2).dimensionality
 
 def convert_units(from_units,to_units,data,ureg):
     from_parsed = ureg.parse_units(from_units)

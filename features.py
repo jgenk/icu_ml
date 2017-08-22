@@ -111,8 +111,13 @@ class FeatureUnionDF(TransformerMixin,BaseEstimator):
         return self.do_union(X, True, y, **fit_params)
 
     def do_union(self,X, is_fit, y=None, **fit_params):
+
+        logger.log('Begin union for {} transformers'.format(len(self.featurizers)),new_level=True)
         df_features = None
+
         for f in self.featurizers:
+            logger.log(f[0],new_level=True)
+            
             if is_fit: df_ft = f[1].fit_transform(X)
             else: df_ft = f[1].transform(X)
             if self.add_name_level:
@@ -121,6 +126,8 @@ class FeatureUnionDF(TransformerMixin,BaseEstimator):
             else: df_features = df_features.join(df_ft,how='outer')
             del df_ft
 
+            logger.end_log_level()
+        logger.end_log_level()
         return df_features
 
 
@@ -154,7 +161,7 @@ class DataSetFactory(TransformerMixin,BaseEstimator):
         return self.make_feature_set(X, True, y, **fit_params)
 
     def make_feature_set(self, ids, fit, y=None, **fit_params):
-        logger.log("Make Feature Set. id_count={}, #features={}".format(len(ids),len(self.featurizers)),new_level=True)
+        logger.log("Make Feature Set. id_count={}, #features={}, components=".format(len(ids),len(self.featurizers),self.components),new_level=True)
         if fit:
             self.comp_preprocessors = [(c,self.preprocessor_pipeline(c)) for c in self.components]
 
@@ -214,14 +221,18 @@ class ComponentDataLoader(TransformerMixin,BaseEstimator):
         self.etl_manager = etl_manager
 
     def transform(self, X):
-
+        logger.log('Load data from component: {}'.format(self.component.upper()),new_level=True)
         if isinstance(X,pd.DataFrame) or isinstance(X,pd.Series):
             X = X.index
         if isinstance(X, pd.Index):
             ids=X.get_level_values(column_names.ID).unique().tolist()
         else: ids=X
 
-        return self.etl_manager.open_df(self.component,ids=ids)
+        df_component = self.etl_manager.open_df(self.component,ids=ids)
+
+        logger.end_log_level()
+
+        return df_component
 
     def fit(self, X, y=None, **fit_params):
         return self

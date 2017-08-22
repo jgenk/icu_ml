@@ -77,13 +77,33 @@ class ETLManager(object):
             where = '{} in {}'.format(column_names.ID,ids)
         return utils.read_and_reconstruct(self.hdf5_fname, path=component, where=where)
 
-    def get_etl_info(self,component,df_extracted,df_transformed,df_cleaned):
+    def get_etl_info_df(self,components):
+        """
+        Each component must have been extracted with save_steps = True
+        """
+        all_etl_info = []
+        for comp in components:
+            logger.log(comp,new_level=True)
+            etl_info = self.get_etl_info(comp)
+            all_etl_info.append(etl_info)
+            logger.end_log_level()
+
+        return pd.DataFrame(all_etl_info)
+
+    def get_etl_info(self,component,df_extracted=None,df_transformed=None,df_cleaned=None):
+        if df_extracted is None:
+            df_extracted = pd.read_hdf(self.hdf5_fname,'{}/{}'.format(component,'extracted'))
         e_ids = self.extracted_ids(df_extracted)
         e_data_count = self.extracted_data_count(df_extracted)
 
+        if df_transformed is None:
+            df_transformed = pd.read_hdf(self.hdf5_fname,'{}/{}'.format(component,'transformed'))
         t_ids = df_transformed.index.get_level_values(column_names.ID).unique().tolist()
         t_data_count = df_transformed.apply(utils.smart_count).sum()
 
+
+        if df_cleaned is None:
+            df_cleaned = utils.read_and_reconstruct(self.hdf5_fname,component)
         c_ids = df_cleaned.index.get_level_values(column_names.ID).unique().tolist()
         c_data_count = df_cleaned.apply(utils.smart_count).sum()
 

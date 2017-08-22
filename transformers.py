@@ -433,7 +433,10 @@ class column_filter(BaseEstimator,TransformerMixin):
 
     def fit(self, df, y=None, **fit_params):
         logger.log('*fit* Filter columns ({}) {}'.format(self.__class__.__name__, df.shape).format(self.__class__),new_level=True)
-        self.cols_to_keep = self.get_columns_to_keep(df, y, **fit_params)
+        if df.empty:
+            self.cols_to_keep = []
+        else:
+            self.cols_to_keep = self.get_columns_to_keep(df, y, **fit_params)
         logger.end_log_level()
         return self
 

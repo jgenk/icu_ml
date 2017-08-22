@@ -17,6 +17,7 @@ blood pressure systolic,51.0
 blood pressure systolic,3317.0
 blood pressure systolic,3321.0
 blood pressure systolic,3323.0
+blood pressure systolic,6701.0
 temperature body,223761.0
 temperature body,678.0
 temperature body,223762.0
@@ -118,6 +119,26 @@ output urine,46177.0
 output urine,44684.0
 output urine,46658.0
 output urine,46578.0
+output urine,43175.0
+output urine,40094.0
+output urine,40715.0
+output urine,40473.0
+output urine,40085.0
+output urine,40057.0
+output urine,40056.0
+output urine,40428.0
+output urine,40086.0
+output urine,40096.0
+output urine,40651.0
+output urine,227510.0
+output urine,226561.0
+output urine,226584.0
+output urine,226563.0
+output urine,226564.0
+output urine,226565.0
+output urine,226567.0
+output urine,226557.0
+output urine,226558.0
 lactated ringers,225828.0
 lactated ringers,44367.0
 lactated ringers,2971.0
@@ -131,11 +152,17 @@ lactated ringers,46781.0
 lactated ringers,44815.0
 respiratory rate,220210.0
 respiratory rate,3603.0
+respiratory rate,219.0
+respiratory rate,615.0
 respiratory rate,618.0
 respiratory rate,8113.0
 blood pressure mean,220181.0
 blood pressure mean,225312.0
 blood pressure mean,220052.0
+blood pressure mean,456.0
+blood pressure mean,52.0
+blood pressure mean,6702.0
+blood pressure mean,443.0
 white blood cell count,220546.0
 white blood cell count,1542.0
 white blood cell count,51516.0
@@ -267,6 +294,7 @@ partial pressure of carbon dioxide arterial,3835.0
 partial pressure of carbon dioxide arterial,3784.0
 partial pressure of carbon dioxide arterial,778.0
 partial pressure of carbon dioxide arterial,220235.0
+partial pressure of carbon dioxide arterial,50818.0
 oxygen saturation arterial,50817.0
 oxygen saturation arterial,220227.0
 pH arterial,50820.0
@@ -279,6 +307,7 @@ pH arterial,4755.0
 pH other,51094.0
 pH other,51491.0
 bicarbonate arterial,50803.0
+bicarbonate arterial,50804.0
 bicarbonate arterial,812.0
 bicarbonate other,227443.0
 bicarbonate other,5075.0
@@ -303,6 +332,7 @@ fraction of inspired oxygen,2518.0
 fraction of inspired oxygen,190.0
 fraction of inspired oxygen,189.0
 fraction of inspired oxygen,7041.0
+fraction of inspired oxygen,50816.0
 positive end expiratory pressure,50819.0
 positive end expiratory pressure,505.0
 positive end expiratory pressure,506.0
@@ -332,3 +362,11 @@ central venous oxygen saturation,225674.0
 central venous oxygen saturation,823.0
 end tidal cardon dioxide,1817.0
 end tidal cardon dioxide,228640.0
+central venous oxygen saturation,664.0
+central venous oxygen saturation,2669.0
+central venous oxygen saturation,2194.0
+central venous oxygen saturation,223772.0
+central venous oxygen saturation,838.0
+central venous oxygen saturation,227686.0
+central venous oxygen saturation,226541.0
+central venous oxygen saturation,227685.0
